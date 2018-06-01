@@ -1,20 +1,30 @@
-var net = require('net');
+const net = require('net');
 
 const PORTS =  [5001,5002,5003];
 
-net.createServer(function (server) {
-
-    let port = 0;// variable to define the port
-    server.on('data', function(data){
-        port = randomPort();
-        net.connect({port: port, host: '127.0.0.1'}, function(){
-            console.log('go to server with port : ' + port); // log server
-            this.write(data);
-        });
+let port = 0;// variable to define the port
+net.createServer(function (client) {
+    port = randomPort();
+    client.write('load_balancer connected go to server :' + port);
+    const clientToCHild = net.connect({port: port, host: '127.0.0.1'});
+    client.on('data', function(data){
+        clientToCHild.write(data)
+    });
+    clientToCHild.on('data', function (dataToChild) {
+        client.write(dataToChild)
+    });
+    client.on('error', () => {
+        client.write('the client with not found');
+        clientToCHild.close();
+        this.close();
+    });
+    clientToCHild.on('error',() =>  {
+        client.write('the server with port:' + port + ' not found');
+        client.close();
+        this.close();
     })
 }).listen(5000);
 
-// random of 3 servers port
 function randomPort () {
     return PORTS[Math.floor((Math.random() * 3))];
 }
